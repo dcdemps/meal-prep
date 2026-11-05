@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PrepPlan — Meal & Grocery Dashboard</title>
+  
+  <!-- iOS PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PrepPlan">
+  <meta name="theme-color" content="#0f172a">
+
+  <!-- Inline App Icon (SVG Data URI) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230f172a'/%3E%3Cpath d='M90 35c-24.8 0-45 18.2-45 42v10h90V77c0-23.8-20.2-42-45-42zm-50 62h100v10c0 18-14 33-32 37v16h-36v-16c-18-4-32-19-32-37V97z' fill='%2310b981'/%3E%3Ccircle cx='90' cy='65' r='6' fill='%23ffffff'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%2310b981'/%3E%3Ctext x='50' y='65' font-size='45' text-anchor='middle' fill='%23ffffff' font-family='sans-serif'%3EP%3C/text%3E%3C/svg%3E">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Inlined Web App Manifest -->
+  <script>
+    const manifestJSON = {
+      name: "PrepPlan Dashboard",
+      short_name: "PrepPlan",
+      start_url: "./index.html",
+      display: "standalone",
+      background_color: "#0f172a",
+      theme_color: "#0f172a",
+      icons: [
+        {
+          src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230f172a'/%3E%3Ccircle cx='90' cy='90' r='50' fill='%2310b981'/%3E%3C/svg%3E",
+          sizes: "192x192 512x512",
+          type: "image/svg+xml"
+        }
+      ]
+    };
+    const stringManifest = JSON.stringify(manifestJSON);
+    const blob = new Blob([stringManifest], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    const linkTag = document.createElement('link');
+    linkTag.rel = 'manifest';
+    linkTag.href = manifestURL;
+    document.head.appendChild(linkTag);
+  </script>
+
+  <style>
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans pb-24 selection:bg-emerald-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-slate-950 text-lg shadow-sm shadow-emerald-500/50">
+          P
+        </div>
+        <h1 class="font-bold text-lg tracking-tight">PrepPlan</h1>
+      </div>
+      <div class="flex items-center space-x-1">
+        <button onclick="switchView('planner')" id="tab-btn-planner" class="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500 text-slate-950">Planner</button>
+        <button onclick="switchView('library')" id="tab-btn-library" class="px-3 py-1 text-xs font-medium text-slate-400 hover:text-slate-100">Library</button>
+        <button onclick="switchView('vetoes')" id="tab-btn-vetoes" class="px-3 py-1 text-xs font-medium text-slate-400 hover:text-slate-100">Vetoes</button>
+        <button onclick="switchView('settings')" id="tab-btn-settings" class="px-3 py-1 text-xs font-medium text-slate-400 hover:text-slate-100">Backup</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 translate-y-3 bg-emerald-500 text-slate-950 px-4 py-2 rounded-full font-semibold text-xs shadow-lg flex items-center space-x-1.5">
+    <span id="toast-message">Notification</span>
+  </div>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto w-full px-4 pt-4 flex-1">
+
+    <!-- VIEW 1: WEEKLY PLANNER & GROCERY LIST -->
+    <div id="view-planner" class="space-y-6">
+      
+      <!-- Slot Selection Card -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold tracking-wide text-slate-400 uppercase">Weekly Rotation Slots</h2>
+          <span class="text-xs text-emerald-400 font-medium">Smart Scaled</span>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Breakfast A -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Breakfast A</span>
+              <div class="flex items-center space-x-2 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
+                <button onclick="adjustServings('breakfastA', -1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">-</button>
+                <span id="servings-breakfastA" class="text-xs font-semibold w-4 text-center">3</span>
+                <button onclick="adjustServings('breakfastA', 1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">+</button>
+                <span class="text-[10px] text-slate-400">srv</span>
+              </div>
+            </div>
+            <select id="select-breakfastA" onchange="updateSelectedRecipe('breakfastA', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2.5 text-slate-100 focus:outline-none focus:border-emerald-500"></select>
+          </div>
+
+          <!-- Breakfast B -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Breakfast B</span>
+              <div class="flex items-center space-x-2 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
+                <button onclick="adjustServings('breakfastB', -1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">-</button>
+                <span id="servings-breakfastB" class="text-xs font-semibold w-4 text-center">2</span>
+                <button onclick="adjustServings('breakfastB', 1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">+</button>
+                <span class="text-[10px] text-slate-400">srv</span>
+              </div>
+            </div>
+            <select id="select-breakfastB" onchange="updateSelectedRecipe('breakfastB', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2.5 text-slate-100 focus:outline-none focus:border-emerald-500"></select>
+          </div>
+
+          <!-- Lunch A (Hot) -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">Lunch A (Hot Reheat)</span>
+              <div class="flex items-center space-x-2 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
+                <button onclick="adjustServings('lunchA', -1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">-</button>
+                <span id="servings-lunchA" class="text-xs font-semibold w-4 text-center">3</span>
+                <button onclick="adjustServings('lunchA', 1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">+</button>
+                <span class="text-[10px] text-slate-400">srv</span>
+              </div>
+            </div>
+            <select id="select-lunchA" onchange="updateSelectedRecipe('lunchA', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2.5 text-slate-100 focus:outline-none focus:border-emerald-500"></select>
+          </div>
+
+          <!-- Lunch B (Cold) -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Lunch B (Cold Grab & Go)</span>
+              <div class="flex items-center space-x-2 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
+                <button onclick="adjustServings('lunchB', -1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">-</button>
+                <span id="servings-lunchB" class="text-xs font-semibold w-4 text-center">2</span>
+                <button onclick="adjustServings('lunchB', 1)" class="text-sm font-bold text-slate-300 active:scale-90 px-1">+</button>
+                <span class="text-[10px] text-slate-400">srv</span>
+              </div>
+            </div>
+            <select id="select-lunchB" onchange="updateSelectedRecipe('lunchB', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2.5 text-slate-100 focus:outline-none focus:border-emerald-500"></select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Cooking & Reheat Guide Section -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-semibold tracking-wide text-slate-400 uppercase">Cooking & Reheat Guide</h2>
+            <p class="text-[11px] text-slate-500">Step-by-step methods for your 4 chosen meals</p>
+          </div>
+          <button onclick="toggleCookingGuide()" id="toggle-guide-btn" class="text-xs px-2.5 py-1 rounded-md border border-slate-700 bg-slate-800 text-emerald-400 font-semibold active:scale-95">
+            📖 Show Steps
+          </button>
+        </div>
+
+        <div id="active-cooking-guide-content" class="space-y-4 pt-2 hidden"></div>
+      </section>
+
+      <!-- Aggregated Grocery List Card -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-semibold tracking-wide text-slate-400 uppercase">Aggregated Grocery List</h2>
+            <p class="text-[11px] text-slate-500">Deduplicated & sorted by aisle</p>
+          </div>
+          <button onclick="togglePantryExclusion()" id="pantry-toggle-btn" class="text-xs px-2.5 py-1 rounded-md border border-slate-700 bg-slate-800 text-slate-300">
+            Pantry Items: <span id="pantry-state" class="text-emerald-400 font-bold">Included</span>
+          </button>
+        </div>
+
+        <!-- Render Target for Aisles -->
+        <div id="grocery-aisles-container" class="space-y-4"></div>
+
+        <!-- Export Actions Toolbar -->
+        <div class="pt-3 border-t border-slate-800 flex flex-col space-y-2">
+          <button onclick="copyGroceryList()" class="w-full bg-emerald-500 active:bg-emerald-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2 transition">
+            <span>📋 Copy List to Clipboard</span>
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="downloadGroceryList('txt')" class="bg-slate-800 active:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-2 rounded-xl text-xs flex items-center justify-center space-x-1">
+              <span>📄 Download .txt</span>
+            </button>
+            <button onclick="downloadGroceryList('csv')" class="bg-slate-800 active:bg-slate-700 text-slate-200 border border-slate-700 font-semibold py-2 rounded-xl text-xs flex items-center justify-center space-x-1">
+              <span>📊 Download .csv</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- VIEW 2: RECIPE LIBRARY & IMPORTER -->
+    <div id="view-library" class="space-y-6 hidden">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-100">Recipe Catalog</h2>
+          <p class="text-xs text-slate-400">Tap any recipe to view cooking steps</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="generateRecipeIdea()" class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs px-2.5 py-1.5 rounded-lg font-medium active:scale-95">💡 Idea</button>
+          <button onclick="openAddModal()" class="bg-emerald-500 text-slate-950 text-xs px-3 py-1.5 rounded-lg font-bold active:scale-95">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Filter Buttons -->
+      <div class="flex space-x-1.5 overflow-x-auto pb-1 text-xs">
+        <button onclick="filterLibrary('all')" class="lib-filter px-3 py-1 rounded-full bg-slate-800 text-slate-200 font-semibold shrink-0" data-type="all">All</button>
+        <button onclick="filterLibrary('breakfast')" class="lib-filter px-3 py-1 rounded-full bg-slate-900 text-slate-400 shrink-0" data-type="breakfast">Breakfast</button>
+        <button onclick="filterLibrary('lunch-hot')" class="lib-filter px-3 py-1 rounded-full bg-slate-900 text-slate-400 shrink-0" data-type="lunch-hot">Hot Lunch</button>
+        <button onclick="filterLibrary('lunch-cold')" class="lib-filter px-3 py-1 rounded-full bg-slate-900 text-slate-400 shrink-0" data-type="lunch-cold">Cold Lunch</button>
+      </div>
+
+      <!-- Recipe Cards Container -->
+      <div id="library-cards-container" class="space-y-3"></div>
+    </div>
+
+    <!-- VIEW 3: INGREDIENT VETOES -->
+    <div id="view-vetoes" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-100">Ingredient Vetoes</h2>
+          <p class="text-xs text-slate-400">Recipes containing these words are automatically excluded from rotation slots.</p>
+        </div>
+
+        <!-- Add Veto Form -->
+        <div class="flex space-x-2">
+          <input type="text" id="veto-input" placeholder="e.g. ground beef, mushrooms" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+          <button onclick="addVeto()" class="bg-rose-500 active:bg-rose-600 text-white font-bold px-4 py-2 rounded-xl text-xs">Veto</button>
+        </div>
+
+        <!-- Current Veto Pills -->
+        <div class="space-y-2">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Active Blacklist:</span>
+          <div id="vetoes-pills-container" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Core Veggie Guardrail -->
+        <div class="p-3 bg-emerald-950/30 border border-emerald-900/50 rounded-xl space-y-1">
+          <div class="text-xs font-bold text-emerald-400">Your Approved Produce Profile</div>
+          <div class="text-[11px] text-slate-400">Broccoli, Cauliflower, Green Beans, Asparagus, and Crisp Apples. Recipes with vetoed items are flagged and excluded.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: BACKUP, RESTORE & DATA -->
+    <div id="view-settings" class="space-y-6 hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-100">Local Data & Backup</h2>
+          <p class="text-xs text-slate-400">Save your custom recipes, vetoes, and active plan to a file or restore an existing backup on your phone.</p>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <button onclick="exportJSONBackup()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2">
+            <span>💾 Export Data Backup (.json)</span>
+          </button>
+
+          <label class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2 cursor-pointer">
+            <span>📥 Restore Backup File</span>
+            <input type="file" id="import-file-input" accept=".json" onchange="importJSONBackup(event)" class="hidden">
+          </label>
+
+          <button onclick="resetToFactoryDefaults()" class="w-full bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 font-medium py-2 rounded-xl text-xs flex items-center justify-center space-x-1 mt-4">
+            <span>⚠️ Reset to Default Starter Recipes</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- RECIPE DETAIL MODAL (VIEW FULL RECIPE & COOKING INSTRUCTIONS) -->
+  <div id="recipe-detail-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+        <div>
+          <div class="flex items-center space-x-2">
+            <h3 class="font-bold text-base text-slate-100" id="detail-title">Recipe Title</h3>
+            <span id="detail-category-badge" class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">Cat</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5" id="detail-servings">4 base servings</p>
+        </div>
+        <button onclick="closeRecipeDetail()" class="text-slate-400 hover:text-slate-200 text-2xl font-light">&times;</button>
+      </div>
+
+      <!-- Detail Ingredients -->
+      <div class="space-y-1.5">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400">Ingredients</h4>
+        <div id="detail-ingredients" class="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-xs space-y-1 text-slate-300"></div>
+      </div>
+
+      <!-- Detail Instructions -->
+      <div class="space-y-1.5">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-sky-400">Preparation & Cooking Steps</h4>
+        <div id="detail-instructions" class="space-y-2 text-xs text-slate-200 leading-relaxed"></div>
+      </div>
+
+      <!-- Detail Reheating Tips -->
+      <div id="detail-reheat-container" class="space-y-1.5 p-3 bg-amber-950/30 border border-amber-900/50 rounded-xl">
+        <h4 class="text-xs font-bold text-amber-400 flex items-center space-x-1">
+          <span>💡</span>
+          <span>Storage & Reheating Guidance</span>
+        </h4>
+        <p id="detail-reheat" class="text-xs text-slate-300 leading-relaxed"></p>
+      </div>
+
+      <button onclick="closeRecipeDetail()" class="w-full bg-slate-800 text-slate-200 font-semibold py-2 rounded-xl text-xs mt-2">Close</button>
+    </div>
+  </div>
+
+  <!-- ADD / IMPORT RECIPE MODAL -->
+  <div id="add-recipe-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-base text-slate-100">Add New Recipe</h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-200 text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Recipe Name</label>
+          <input type="text" id="recipe-name-input" placeholder="e.g. Garlic Butter Sirloin & Green Beans" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 font-medium mb-1">Slot Category</label>
+            <select id="recipe-category-input" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100">
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch-hot">Lunch (Hot Reheat)</option>
+              <option value="lunch-cold">Lunch (Cold Grab & Go)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 font-medium mb-1">Base Servings</label>
+            <input type="number" id="recipe-servings-input" value="4" min="1" max="12" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Tags (comma separated)</label>
+          <input type="text" id="recipe-tags-input" placeholder="Beef, Garlic, Reheats Well" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100">
+        </div>
+
+        <!-- Ingredients Paste Area -->
+        <div class="pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-slate-400 font-medium">Ingredients (1 per line)</label>
+            <span class="text-[10px] text-emerald-400">Format: Amount Unit Item</span>
+          </div>
+          <textarea id="recipe-paste-input" rows="4" placeholder="1.5 lb sirloin steak&#10;1 lb green beans&#10;3 tbsp butter&#10;4 cloves garlic" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100 font-mono text-[11px]"></textarea>
+        </div>
+
+        <!-- Instructions Textarea -->
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Step-by-Step Cooking Instructions</label>
+          <textarea id="recipe-instructions-input" rows="4" placeholder="1. Cut steak into 1-inch cubes...&#10;2. Sear in smoking cast iron skillet for 3 mins...&#10;3. Sauté green beans in butter & garlic..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100 text-[11px]"></textarea>
+        </div>
+
+        <!-- Reheat & Storage Tips -->
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">Reheating & Storage Tips</label>
+          <input type="text" id="recipe-reheat-input" placeholder="e.g. Microwave 60s max to prevent tough steak; store up to 4 days." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-100 text-[11px]">
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button onclick="saveNewRecipe()" class="flex-1 bg-emerald-500 text-slate-950 font-bold py-2 rounded-xl text-xs">Save to Library</button>
+          <button onclick="closeAddModal()" class="px-4 bg-slate-800 text-slate-300 font-semibold py-2 rounded-xl text-xs">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT -->
+  <script>
+    // --- FULL SEEDED DATA WITH ACCURATE COOKING STEPS ---
+    const DEFAULT_RECIPES = [
+      {
+        id: "rec_ham_egg_cups",
+        title: "Baked Ham & Cheddar Egg Cups",
+        category: "breakfast",
+        baseServings: 4,
+        tags: ["Savory", "Pork", "Broccoli", "Baked"],
+        ingredients: [
+          { item: "whole eggs", amount: 8, unit: "ct", dept: "Dairy & Eggs", isPantry: false },
+          { item: "milk", amount: 0.25, unit: "cup", dept: "Dairy & Eggs", isPantry: false },
+          { item: "diced cured ham", amount: 6, unit: "oz", dept: "Meat & Deli", isPantry: false },
+          { item: "sharp cheddar cheese", amount: 4, unit: "oz", dept: "Dairy & Eggs", isPantry: false },
+          { item: "fresh broccoli florets", amount: 1, unit: "cup", dept: "Produce", isPantry: false },
+          { item: "garlic powder", amount: 0.5, unit: "tsp", dept: "Pantry & Spices", isPantry: true },
+          { item: "black pepper", amount: 0.5, unit: "tsp", dept: "Pantry & Spices", isPantry: true }
+        ],
+        instructions: [
+          "Preheat your oven to 350°F (175°C) and lightly grease a standard 12-cup muffin tin or line with silicone baking liners.",
+          "In a large mixing bowl, vigorously whisk 8 whole eggs, 1/4 cup milk, 1/2 tsp garlic powder, salt, and black pepper until uniform and slightly frothy.",
+          "Steam or blanch broccoli florets for 90 seconds until tender-crisp, then finely chop.",
+          "Distribute the diced ham, shredded sharp cheddar, and chopped broccoli florets evenly into the 12 muffin cups.",
+          "Pour the whisked egg mixture evenly over the fillings in each cup, filling about 3/4 full.",
+          "Bake for 20–22 minutes until eggs are puffed, set in the center, and edges are lightly golden. Let rest 5 minutes before popping out."
+        ],
+        reheatTips: "Store in airtight glass containers in the fridge for up to 5 days. To reheat, wrap 2 egg cups in a dry paper towel and microwave for 45–60 seconds; the paper towel catches surface moisture so the texture stays fluffy rather than rubbery."
+      },
+      {
+        id: "rec_turkey_burritos",
+        title: "Smoked Turkey & Potato Breakfast Burritos",
+        category: "breakfast",
+        baseServings: 4,
+        tags: ["Savory", "Turkey", "Freezer Friendly"],
+        ingredients: [
+          { item: "large flour tortillas", amount: 4, unit: "ct", dept: "Bakery", isPantry: false },
+          { item: "whole eggs", amount: 6, unit: "ct", dept: "Dairy & Eggs", isPantry: false },
+          { item: "smoked turkey breast strips", amount: 8, unit: "oz", dept: "Meat & Deli", isPantry: false },
+          { item: "diced russet potatoes", amount: 2, unit: "ct", dept: "Produce", isPantry: false },
+          { item: "shredded cheddar", amount: 4, unit: "oz", dept: "Dairy & Eggs", isPantry: false },
+          { item: "olive oil", amount: 1, unit: "tbsp", dept: "Pantry & Spices", isPantry: true }
+        ],
+        instructions: [
+          "Dice russet potatoes into 1/2-inch cubes. Toss with olive oil, salt, and black pepper, then roast at 400°F (200°C) for 20 minutes (or pan-fry) until golden and fork-tender.",
+          "In a nonstick skillet, quickly warm and lightly brown the smoked turkey strips over medium heat for 3 minutes, then set aside.",
+          "Whisk 6 whole eggs with a pinch of salt and pepper. Scramble gently over medium-low heat until just set and soft-curd (do not overcook; they cook more when reheated).",
+          "Warm large flour tortillas in the microwave for 15 seconds to make them flexible.",
+          "Layer scrambled eggs, roasted potatoes, browned turkey strips, and cheddar down the center of each tortilla.",
+          "Fold sides in tightly, roll up into a burrito, and wrap individually in parchment paper and foil."
+        ],
+        reheatTips: "Keep refrigerated for 4 days or freeze up to 2 months. Reheat from fridge: unwrap foil, leave parchment on, and microwave 75–90 seconds. To crisp the outside, toss on a hot dry skillet for 1 minute per side."
+      },
+      {
+        id: "rec_ham_potato_hash",
+        title: "Sheet-Pan Diced Ham & Potato Hash",
+        category: "breakfast",
+        baseServings: 4,
+        tags: ["Savory", "Pork", "Cauliflower", "Sheet Pan"],
+        ingredients: [
+          { item: "diced cured ham", amount: 8, unit: "oz", dept: "Meat & Deli", isPantry: false },
+          { item: "cubed russet potatoes", amount: 1.5, unit: "lb", dept: "Produce", isPantry: false },
+          { item: "cauliflower florets", amount: 12, unit: "oz", dept: "Produce", isPantry: false },
+          { item: "olive oil", amount: 2, unit: "tbsp", dept: "Pantry & Spices", isPantry: true },
+          { item: "dried rosemary", amount: 1, unit: "tsp", dept: "Pantry & Spices", isPantry: true },
+          { item: "garlic powder", amount: 1, unit: "tsp", dept: "Pantry & Spices", isPantry: true }
+        ],
+        instructions: [
+          "Preheat your oven to 400°F (200°C) and line a rimmed baking sheet with parchment paper.",
+          "Cut russet potatoes into 1/2-inch cubes and trim cauliflower into matching bite-sized florets.",
+          "Toss potatoes and cauliflower in a large bowl with 2 tbsp olive oil, rosemary, garlic powder, salt, and black pepper.",
+          "Spread in a single layer on the sheet pan and roast for 25 minutes until potatoes are golden and tender.",
+          "Scatter diced cured ham across the sheet pan, toss gently, and roast for an additional 8–10 minutes until the ham edges crisp up."
+        ],
+        reheatTips: "Divide into 4 containers. Reheat in the microwave for 90 seconds, or toss into a hot toaster oven/air fryer at 380°F for 4 minutes to restore maximum crispiness."
+      },
+      {
+        id: "rec_chicken_broccoli",
+        title: "Garlic Herb Chicken & Roasted Broccoli",
+        category: "lunch-hot",
+        baseServings: 4,
+        tags: ["Poultry", "Broccoli", "Hot Reheat"],
+        ingredients: [
+          { item: "boneless chicken breasts", amount: 1.5, unit: "lb", dept: "Meat & Deli", isPantry: false },
+          { item: "fresh broccoli florets", amount: 16, unit: "oz", dept: "Produce", isPantry: false },
+          { item: "jasmine rice (uncooked)", amount: 1, unit: "cup", dept: "Pantry & Spices", isPantry: true },
+          { item: "olive oil", amount: 2, unit: "tbsp", dept: "Pantry & Spices", isPantry: true },
+          { item: "garlic cloves", amount: 4, unit: "ct", dept: "Produce", isPantry: true },
+          { item: "dried oregano", amount: 1, unit: "tsp", dept: "Pantry & Spices", isPantry: true }
+        ],
+        instructions: [
+          "Rinse and cook jasmine rice with 1.5 cups water and a pinch of salt (bring to boil, cover, simmer 15 mins, rest 5 mins).",
+          "Toss fresh broccoli florets with 1 tbsp olive oil, 2 minced garlic cloves, salt, and pepper. Roast on a baking sheet at 400°F (200°C) for 15–18 minutes until tender-crisp with roasted tips.",
+          "Slice chicken breasts horizontally into cutlets. Rub with 1 tbsp olive oil, remaining minced garlic, oregano, salt, and pepper.",
+          "Heat a heavy skillet over medium-high heat. Sear cutlets for 5–6 minutes per side until golden and internal temperature hits 165°F.",
+          "Let chicken rest 5 minutes on a cutting board, then slice into strips. Portion rice, chicken, and broccoli into 4 glass meal prep bowls."
+        ],
+        reheatTips: "Keeps 4 days in the fridge. Sprinkle a teaspoon of water over the rice before microwaving covered for 90 seconds to re-steam the grains and keep chicken juicy."
+      },
+      {
+        id: "rec_steak_green_beans",
+        title: "Garlic Butter Sirloin & Green Beans",
+        category: "lunch-hot",
+        baseServings: 4,
+        tags: ["Beef", "Green Beans", "Hot Reheat"],
+        ingredients: [
+          { item: "top sirloin steak (cubed)", amount: 1.5, unit: "lb", dept: "Meat & Deli", isPantry: false },
+          { item: "trimmed fresh green beans", amount: 1, unit: "lb", dept: "Produce", isPantry: false },
+          { item: "baby gold potatoes", amount: 1, unit: "lb", dept: "Produce", isPantry: false },
+          { item: "butter", amount: 3, unit: "tbsp", dept: "Dairy & Eggs", isPantry: true },
+          { item: "garlic cloves", amount: 5, unit: "ct", dept: "Produce", isPantry: true }
+        ],
+        instructions: [
+          "Quarter baby gold potatoes and steam or boil in salted water for 12 minutes until tender. Drain.",
+          "Cut top sirloin steak into 1-inch cubes. Pat completely dry with paper towels; season generously with coarse salt and pepper.",
+          "Heat a cast iron skillet over high heat with 1 tbsp oil until smoking. Add steak cubes in a single layer and sear without moving for 2 minutes to get a deep crust. Flip and sear 1 minute more. Remove to a plate while still medium-rare.",
+          "Turn heat to medium, melt 3 tbsp butter, and add minced garlic and trimmed green beans. Sauté for 4–5 minutes until tender-crisp.",
+          "Toss potatoes and seared steak back into the pan sauce for 30 seconds to coat in garlic butter, then remove from heat immediately.",
+          "Divide evenly across 4 meal prep containers."
+        ],
+        reheatTips: "Because the steak is seared medium-rare, a 60–75 second microwave reheat gently warms it without overcooking or turning the sirloin tough."
+      },
+      {
+        id: "rec_roast_beef_wrap",
+        title: "Deli Roast Beef Wrap & Crisp Apple",
+        category: "lunch-cold",
+        baseServings: 4,
+        tags: ["Beef", "Cold Lunch", "Apple", "No Cook"],
+        ingredients: [
+          { item: "deli sliced roast beef", amount: 12, unit: "oz", dept: "Meat & Deli", isPantry: false },
+          { item: "large whole-wheat wraps", amount: 4, unit: "ct", dept: "Bakery", isPantry: false },
+          { item: "sharp white cheddar slices", amount: 4, unit: "oz", dept: "Dairy & Eggs", isPantry: false },
+          { item: "Honeycrisp apples", amount: 4, unit: "ct", dept: "Produce", isPantry: false },
+          { item: "garlic herb cheese spread", amount: 4, unit: "tbsp", dept: "Dairy & Eggs", isPantry: false }
+        ],
+        instructions: [
+          "Lay out 4 large whole-wheat tortillas flat on your prep surface.",
+          "Spread 1 tablespoon of garlic-herb cheese spread or creamy Dijon smoothly across each tortilla, leaving a clean 1-inch outer edge.",
+          "Layer 3 oz of high-quality sliced deli roast beef and 1 oz sharp white cheddar cheese slices down the center.",
+          "Fold in the sides tightly and roll up snugly. Wrap individually in parchment paper and slice diagonally.",
+          "Core and cut Honeycrisp apples into wedges. Toss slices in a splash of water with a squeeze of lemon juice (or a tiny pinch of salt) to keep them crisp and prevent browning.",
+          "Pack each wrap and apple side into lunch containers."
+        ],
+        reheatTips: "Zero reheat needed. Ready to grab straight from the fridge or cooler bag. Stays fresh and crisp for 3 days."
+      },
+      {
+        id: "rec_turkey_club_box",
+        title: "Roast Turkey & Asparagus Bento",
+        category: "lunch-cold",
+        baseServings: 4,
+        tags: ["Turkey", "Asparagus", "Cold Lunch", "Apple"],
+        ingredients: [
+          { item: "thick sliced roast turkey", amount: 14, unit: "oz", dept: "Meat & Deli", isPantry: false },
+          { item: "blanched chilled asparagus spears", amount: 12, unit: "oz", dept: "Produce", isPantry: false },
+          { item: "Granny Smith apples", amount: 4, unit: "ct", dept: "Produce", isPantry: false },
+          { item: "sharp cheddar cubes", amount: 4, unit: "oz", dept: "Dairy & Eggs", isPantry: false },
+          { item: "whole grain dijon mustard", amount: 3, unit: "tbsp", dept: "Pantry & Spices", isPantry: true }
+        ],
+        instructions: [
+          "Snap the fibrous woody ends off asparagus spears. Bring a small pot of salted water to a rapid boil.",
+          "Drop asparagus into boiling water for 2.5 minutes until bright vibrant green, then plunge immediately into an ice bath for 2 minutes to halt cooking. Drain and pat dry.",
+          "Cut thick-sliced roasted turkey breast and cheddar cheese into clean bite-sized cubes.",
+          "Slice Granny Smith apples into wedges and rinse in lemon water to maintain crispness.",
+          "Distribute turkey, chilled asparagus, cheddar cubes, and apple wedges into partitioned meal prep bento containers.",
+          "Include a small dip cup of whole-grain Dijon mustard in each container for dipping."
+        ],
+        reheatTips: "Designed strictly as a cold grab-and-go meal. Keeps in the fridge for up to 4 days with zero sogginess."
+      }
+    ];
+
+    const DEFAULT_VETOES = ["ground beef", "mushrooms", "bell pepper", "onion", "kale", "berries"];
+
+    // --- STATE INITIALIZATION ---
+    let appData = {
+      recipes: [],
+      vetoes: [],
+      excludePantry: false,
+      cookingGuideOpen: false,
+      slots: {
+        breakfastA: { recipeId: "rec_ham_egg_cups", servings: 3 },
+        breakfastB: { recipeId: "rec_turkey_burritos", servings: 2 },
+        lunchA: { recipeId: "rec_steak_green_beans", servings: 3 },
+        lunchB: { recipeId: "rec_roast_beef_wrap", servings: 2 }
+      }
+    };
+
+    function loadState() {
+      const saved = localStorage.getItem("prepplan_storage_v2");
+      if (saved) {
+        try {
+          appData = JSON.parse(saved);
+        } catch (e) {
+          appData.recipes = [...DEFAULT_RECIPES];
+          appData.vetoes = [...DEFAULT_VETOES];
+        }
+      } else {
+        appData.recipes = [...DEFAULT_RECIPES];
+        appData.vetoes = [...DEFAULT_VETOES];
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem("prepplan_storage_v2", JSON.stringify(appData));
+    }
+
+    // --- NAVIGATION ---
+    function switchView(viewName) {
+      ['planner', 'library', 'vetoes', 'settings'].forEach(v => {
+        document.getElementById(`view-${v}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${v}`);
+        btn.className = "px-3 py-1 text-xs font-medium text-slate-400 hover:text-slate-100";
+      });
+      document.getElementById(`view-${viewName}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${viewName}`);
+      activeBtn.className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500 text-slate-950";
+
+      if (viewName === 'planner') renderPlanner();
+      if (viewName === 'library') renderLibrary('all');
+      if (viewName === 'vetoes') renderVetoes();
+    }
+
+    // --- TOAST HELPER ---
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toast-message');
+      text.innerText = msg;
+      toast.classList.remove('opacity-0', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-3');
+      }, 2200);
+    }
+
+    // --- VETO ENGINE ---
+    function isRecipeVetoed(recipe) {
+      const lowerVetoes = appData.vetoes.map(v => v.toLowerCase().trim()).filter(Boolean);
+      for (let ing of recipe.ingredients) {
+        const ingName = ing.item.toLowerCase();
+        for (let v of lowerVetoes) {
+          if (ingName.includes(v)) return true;
+        }
+      }
+      return false;
+    }
+
+    function addVeto() {
+      const input = document.getElementById('veto-input');
+      const val = input.value.trim().toLowerCase();
+      if (!val) return;
+      if (!appData.vetoes.includes(val)) {
+        appData.vetoes.push(val);
+        saveState();
+        renderVetoes();
+        renderPlanner();
+        showToast(`Vetoed "${val}"`);
+      }
+      input.value = "";
+    }
+
+    function removeVeto(v) {
+      appData.vetoes = appData.vetoes.filter(x => x !== v);
+      saveState();
+      renderVetoes();
+      renderPlanner();
+      showToast(`Removed veto "${v}"`);
+    }
+
+    function renderVetoes() {
+      const container = document.getElementById('vetoes-pills-container');
+      container.innerHTML = "";
+      if (appData.vetoes.length === 0) {
+        container.innerHTML = `<span class="text-xs text-slate-500">No active vetoes.</span>`;
+        return;
+      }
+      appData.vetoes.forEach(v => {
+        const pill = document.createElement('div');
+        pill.className = "flex items-center space-x-1.5 bg-rose-950/40 border border-rose-900/60 text-rose-300 px-2.5 py-1 rounded-full text-xs font-medium";
+        pill.innerHTML = `
+          <span>${v}</span>
+          <button onclick="removeVeto('${v}')" class="text-rose-400 hover:text-rose-100 text-sm font-bold">&times;</button>
+        `;
+        container.appendChild(pill);
+      });
+    }
+
+    // --- PLANNER & SLOT MANAGEMENT ---
+    function adjustServings(slotKey, delta) {
+      const current = appData.slots[slotKey].servings;
+      const next = Math.max(1, Math.min(12, current + delta));
+      appData.slots[slotKey].servings = next;
+      document.getElementById(`servings-${slotKey}`).innerText = next;
+      saveState();
+      renderGroceryList();
+      renderCookingGuide();
+    }
+
+    function updateSelectedRecipe(slotKey, recId) {
+      appData.slots[slotKey].recipeId = recId;
+      saveState();
+      renderGroceryList();
+      renderCookingGuide();
+    }
+
+    function populateSlotSelects() {
+      const slotsConfig = [
+        { key: "breakfastA", cat: "breakfast" },
+        { key: "breakfastB", cat: "breakfast" },
+        { key: "lunchA", cat: "lunch-hot" },
+        { key: "lunchB", cat: "lunch-cold" }
+      ];
+
+      slotsConfig.forEach(({ key, cat }) => {
+        const select = document.getElementById(`select-${key}`);
+        select.innerHTML = "";
+
+        const validRecipes = appData.recipes.filter(r => r.category === cat && !isRecipeVetoed(r));
+
+        if (validRecipes.length === 0) {
+          select.innerHTML = `<option value="">No matching recipes (check vetoes)</option>`;
+          return;
+        }
+
+        validRecipes.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.title} (${r.tags.slice(0, 2).join(', ')})`;
+          if (appData.slots[key].recipeId === r.id) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        });
+
+        if (!validRecipes.some(r => r.id === appData.slots[key].recipeId)) {
+          appData.slots[key].recipeId = validRecipes[0].id;
+          select.value = validRecipes[0].id;
+        }
+
+        document.getElementById(`servings-${key}`).innerText = appData.slots[key].servings;
+      });
+    }
+
+    // --- COOKING & REHEAT GUIDE (PLANNER TAB) ---
+    function toggleCookingGuide() {
+      appData.cookingGuideOpen = !appData.cookingGuideOpen;
+      const box = document.getElementById('active-cooking-guide-content');
+      const btn = document.getElementById('toggle-guide-btn');
+      if (appData.cookingGuideOpen) {
+        box.classList.remove('hidden');
+        btn.innerText = "Hide Steps";
+        renderCookingGuide();
+      } else {
+        box.classList.add('hidden');
+        btn.innerText = "📖 Show Steps";
+      }
+    }
+
+    function renderCookingGuide() {
+      const container = document.getElementById('active-cooking-guide-content');
+      container.innerHTML = "";
+
+      const slotKeys = [
+        { key: "breakfastA", label: "Breakfast A" },
+        { key: "breakfastB", label: "Breakfast B" },
+        { key: "lunchA", label: "Lunch A (Hot)" },
+        { key: "lunchB", label: "Lunch B (Cold)" }
+      ];
+
+      slotKeys.forEach(({ key, label }) => {
+        const slot = appData.slots[key];
+        const recipe = appData.recipes.find(r => r.id === slot.recipeId);
+        if (!recipe) return;
+
+        const card = document.createElement('div');
+        card.className = "bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5";
+
+        let instructionsList = "";
+        if (recipe.instructions && recipe.instructions.length > 0) {
+          instructionsList = recipe.instructions.map((step, idx) => `
+            <div class="flex items-start space-x-2 text-xs">
+              <span class="w-4 h-4 rounded-full bg-slate-800 text-emerald-400 font-mono text-[10px] flex items-center justify-center shrink-0 mt-0.5">${idx+1}</span>
+              <p class="text-slate-300 leading-relaxed">${step}</p>
+            </div>
+          `).join('');
+        } else {
+          instructionsList = `<p class="text-xs text-slate-500 italic">No instructions specified yet.</p>`;
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">${label}</span>
+              <h3 class="text-xs font-bold text-slate-100">${recipe.title}</h3>
+            </div>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+              Prep for ${slot.servings} Servings
+            </span>
+          </div>
+
+          <div class="space-y-1.5 pt-1">
+            ${instructionsList}
+          </div>
+
+          ${recipe.reheatTips ? `
+            <div class="p-2.5 bg-amber-950/20 border border-amber-900/40 rounded-lg text-[11px] text-amber-300/90 leading-relaxed mt-2 flex items-start space-x-1.5">
+              <span class="shrink-0 text-amber-400">💡</span>
+              <div><strong class="text-amber-300">Reheat & Storage:</strong> ${recipe.reheatTips}</div>
+            </div>
+          ` : ''}
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    // --- GROCERY AGGREGATION & AISLES ---
+    function togglePantryExclusion() {
+      appData.excludePantry = !appData.excludePantry;
+      document.getElementById('pantry-state').innerText = appData.excludePantry ? "Excluded" : "Included";
+      document.getElementById('pantry-state').className = appData.excludePantry ? "text-amber-400 font-bold" : "text-emerald-400 font-bold";
+      saveState();
+      renderGroceryList();
+    }
+
+    function getAggregatedIngredients() {
+      const aggregate = {};
+
+      Object.entries(appData.slots).forEach(([slotKey, slotData]) => {
+        const recipe = appData.recipes.find(r => r.id === slotData.recipeId);
+        if (!recipe) return;
+
+        const multiplier = slotData.servings / (recipe.baseServings || 4);
+
+        recipe.ingredients.forEach(ing => {
+          if (appData.excludePantry && ing.isPantry) return;
+
+          const key = `${ing.item.toLowerCase().trim()}_${ing.unit.toLowerCase().trim()}`;
+          if (!aggregate[key]) {
+            aggregate[key] = {
+              name: ing.item,
+              unit: ing.unit,
+              dept: ing.dept || "Pantry & Spices",
+              amount: 0,
+              isPantry: ing.isPantry
+            };
+          }
+          aggregate[key].amount += (ing.amount * multiplier);
+        });
+      });
+
+      return aggregate;
+    }
+
+    function formatNumber(num) {
+      if (num % 1 === 0) return num.toString();
+      const rounded = Math.round(num * 10) / 10;
+      return rounded.toString();
+    }
+
+    function renderGroceryList() {
+      const container = document.getElementById('grocery-aisles-container');
+      container.innerHTML = "";
+
+      const rawAgg = getAggregatedIngredients();
+      const items = Object.values(rawAgg);
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="p-4 bg-slate-950 rounded-xl text-center text-xs text-slate-500">No items in grocery list. Select recipes above.</div>`;
+        return;
+      }
+
+      const deptOrder = ["Produce", "Meat & Deli", "Dairy & Eggs", "Bakery", "Pantry & Spices"];
+      const grouped = {};
+      deptOrder.forEach(d => grouped[d] = []);
+
+      items.forEach(it => {
+        const dept = grouped[it.dept] ? it.dept : "Pantry & Spices";
+        grouped[dept].push(it);
+      });
+
+      deptOrder.forEach(dept => {
+        const deptItems = grouped[dept];
+        if (deptItems.length === 0) return;
+
+        const deptBox = document.createElement('div');
+        deptBox.className = "bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2";
+
+        let deptIcon = "🧂";
+        if (dept === "Produce") deptIcon = "🥦";
+        if (dept === "Meat & Deli") deptIcon = "🥩";
+        if (dept === "Dairy & Eggs") deptIcon = "🧀";
+        if (dept === "Bakery") deptIcon = "🍞";
+
+        deptBox.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+              <span>${deptIcon}</span>
+              <span>${dept}</span>
+            </span>
+            <span class="text-[10px] text-slate-500 font-semibold">${deptItems.length} items</span>
+          </div>
+          <ul class="space-y-1 text-xs text-slate-200">
+            ${deptItems.map(it => `
+              <li class="flex items-baseline justify-between py-0.5">
+                <span class="text-slate-300">${it.name}</span>
+                <span class="font-mono text-emerald-400 font-medium ml-2">${formatNumber(it.amount)} ${it.unit}</span>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+        container.appendChild(deptBox);
+      });
+    }
+
+    function renderPlanner() {
+      populateSlotSelects();
+      renderGroceryList();
+      if (appData.cookingGuideOpen) {
+        renderCookingGuide();
+      }
+    }
+
+    // --- EXPORT TOOLS ---
+    function buildExportText() {
+      const rawAgg = getAggregatedIngredients();
+      const items = Object.values(rawAgg);
+      const deptOrder = ["Produce", "Meat & Deli", "Dairy & Eggs", "Bakery", "Pantry & Spices"];
+      let text = `PREPPLAN GROCERY LIST - ${new Date().toLocaleDateString()}\n`;
+      text += `===================================\n\n`;
+
+      deptOrder.forEach(dept => {
+        const deptItems = items.filter(i => (i.dept || "Pantry & Spices") === dept);
+        if (deptItems.length > 0) {
+          text += `[${dept.toUpperCase()}]\n`;
+          deptItems.forEach(it => {
+            text += `• ${formatNumber(it.amount)} ${it.unit} ${it.name}\n`;
+          });
+          text += `\n`;
+        }
+      });
+      return text.trim();
+    }
+
+    function copyGroceryList() {
+      const text = buildExportText();
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied list to clipboard!");
+      }).catch(() => {
+        showToast("Clipboard access denied");
+      });
+    }
+
+    function downloadGroceryList(format) {
+      if (format === 'txt') {
+        const content = buildExportText();
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `grocery-list-${new Date().toISOString().slice(0, 10)}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Downloaded .txt grocery list");
+      } else if (format === 'csv') {
+        const rawAgg = getAggregatedIngredients();
+        const items = Object.values(rawAgg);
+        let csv = "Department,Item,Quantity,Unit\n";
+        items.forEach(it => {
+          csv += `"${it.dept}","${it.name.replace(/"/g, '""')}",${formatNumber(it.amount)},"${it.unit}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `grocery-list-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Downloaded .csv grocery list");
+      }
+    }
+
+    // --- RECIPE DETAIL MODAL ---
+    function openRecipeDetail(id) {
+      const r = appData.recipes.find(x => x.id === id);
+      if (!r) return;
+
+      document.getElementById('detail-title').innerText = r.title;
+      document.getElementById('detail-category-badge').innerText = r.category.replace('-', ' ');
+      document.getElementById('detail-servings').innerText = `${r.baseServings} Base Servings • ${r.tags.join(', ')}`;
+
+      // Ingredients
+      const ingBox = document.getElementById('detail-ingredients');
+      ingBox.innerHTML = r.ingredients.map(i => `
+        <div class="flex justify-between items-baseline py-0.5">
+          <span>${i.item}</span>
+          <span class="font-mono text-emerald-400">${i.amount} ${i.unit}</span>
+        </div>
+      `).join('');
+
+      // Instructions
+      const instBox = document.getElementById('detail-instructions');
+      if (r.instructions && r.instructions.length > 0) {
+        instBox.innerHTML = r.instructions.map((step, idx) => `
+          <div class="flex items-start space-x-2">
+            <span class="w-5 h-5 rounded-full bg-slate-800 text-sky-400 font-mono text-[10px] flex items-center justify-center shrink-0 mt-0.5">${idx+1}</span>
+            <p class="text-slate-200">${step}</p>
+          </div>
+        `).join('');
+      } else {
+        instBox.innerHTML = `<p class="text-slate-500 italic">No preparation steps entered.</p>`;
+      }
+
+      // Reheat
+      const reheatContainer = document.getElementById('detail-reheat-container');
+      const reheatText = document.getElementById('detail-reheat');
+      if (r.reheatTips) {
+        reheatText.innerText = r.reheatTips;
+        reheatContainer.classList.remove('hidden');
+      } else {
+        reheatContainer.classList.add('hidden');
+      }
+
+      document.getElementById('recipe-detail-modal').classList.remove('hidden');
+    }
+
+    function closeRecipeDetail() {
+      document.getElementById('recipe-detail-modal').classList.add('hidden');
+    }
+
+    // --- RECIPE LIBRARY & MODAL ---
+    function renderLibrary(filterCat) {
+      const container = document.getElementById('library-cards-container');
+      container.innerHTML = "";
+
+      document.querySelectorAll('.lib-filter').forEach(btn => {
+        if (btn.dataset.type === filterCat) {
+          btn.className = "lib-filter px-3 py-1 rounded-full bg-emerald-500 text-slate-950 font-semibold shrink-0";
+        } else {
+          btn.className = "lib-filter px-3 py-1 rounded-full bg-slate-900 text-slate-400 shrink-0";
+        }
+      });
+
+      const filtered = appData.recipes.filter(r => {
+        if (filterCat === 'all') return true;
+        return r.category === filterCat;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">No recipes in this category.</div>`;
+        return;
+      }
+
+      filtered.forEach(r => {
+        const vetoed = isRecipeVetoed(r);
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border ${vetoed ? 'bg-rose-950/20 border-rose-900/40 opacity-70' : 'bg-slate-900 border-slate-800 hover:border-slate-700'} space-y-2 relative transition cursor-pointer`;
+        card.onclick = (e) => {
+          if (e.target.tagName !== 'BUTTON') {
+            openRecipeDetail(r.id);
+          }
+        };
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-sm text-slate-100">${r.title}</h3>
+                ${vetoed ? '<span class="text-[10px] bg-rose-900/60 text-rose-300 px-1.5 py-0.5 rounded font-bold">VETOED</span>' : ''}
+              </div>
+              <p class="text-[11px] text-slate-400">${r.baseServings} servings • ${r.category.replace('-', ' ').toUpperCase()}</p>
+            </div>
+            <button onclick="deleteRecipe('${r.id}')" class="text-slate-500 hover:text-rose-400 text-xs font-bold px-1.5 py-0.5">&times;</button>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            ${r.tags.map(t => `<span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">${t}</span>`).join('')}
+          </div>
+          <div class="flex items-center justify-between pt-1 border-t border-slate-800 text-xs text-slate-400">
+            <span>${r.ingredients.length} ingredients</span>
+            <span class="text-emerald-400 font-medium">View Cooking Steps &rarr;</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function filterLibrary(cat) {
+      renderLibrary(cat);
+    }
+
+    function deleteRecipe(id) {
+      if (appData.recipes.length <= 1) {
+        showToast("Cannot delete the last recipe");
+        return;
+      }
+      appData.recipes = appData.recipes.filter(r => r.id !== id);
+      saveState();
+      renderLibrary('all');
+      renderPlanner();
+      showToast("Recipe deleted");
+    }
+
+    function openAddModal() {
+      document.getElementById('add-recipe-modal').classList.remove('hidden');
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-recipe-modal').classList.add('hidden');
+    }
+
+    function guessDepartment(name) {
+      const lower = name.toLowerCase();
+      if (lower.match(/broccoli|cauliflower|bean|asparagus|apple|potato|garlic|lemon|onion|herb/)) return "Produce";
+      if (lower.match(/beef|steak|chicken|turkey|ham|pork|bacon|cutlet|sirloin/)) return "Meat & Deli";
+      if (lower.match(/cheese|egg|cheddar|milk|butter|yogurt/)) return "Dairy & Eggs";
+      if (lower.match(/tortilla|wrap|bread|bun|roll/)) return "Bakery";
+      return "Pantry & Spices";
+    }
+
+    function saveNewRecipe() {
+      const name = document.getElementById('recipe-name-input').value.trim();
+      const cat = document.getElementById('recipe-category-input').value;
+      const servings = parseInt(document.getElementById('recipe-servings-input').value) || 4;
+      const tagsRaw = document.getElementById('recipe-tags-input').value;
+      const pasteText = document.getElementById('recipe-paste-input').value.trim();
+      const instructionsRaw = document.getElementById('recipe-instructions-input').value.trim();
+      const reheat = document.getElementById('recipe-reheat-input').value.trim();
+
+      if (!name) {
+        alert("Please provide a recipe name.");
+        return;
+      }
+
+      const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+      const ingredients = [];
+
+      if (pasteText) {
+        const lines = pasteText.split('\n');
+        lines.forEach(line => {
+          line = line.trim();
+          if (!line) return;
+          const match = line.match(/^([\d\.\/]+)\s*([a-zA-Z]+)?\s+(.*)$/);
+          if (match) {
+            let amt = parseFloat(eval(match[1])) || 1;
+            let unit = match[2] || "ct";
+            let item = match[3];
+            const isPantry = line.toLowerCase().includes("oil") || line.toLowerCase().includes("pepper") || line.toLowerCase().includes("salt") || line.toLowerCase().includes("powder");
+            ingredients.push({
+              item: item,
+              amount: amt,
+              unit: unit,
+              dept: guessDepartment(item),
+              isPantry: isPantry
+            });
+          } else {
+            ingredients.push({
+              item: line,
+              amount: 1,
+              unit: "ct",
+              dept: guessDepartment(line),
+              isPantry: false
+            });
+          }
+        });
+      }
+
+      const instructions = instructionsRaw 
+        ? instructionsRaw.split('\n').map(s => s.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean)
+        : [];
+
+      const newRec = {
+        id: "rec_" + Date.now(),
+        title: name,
+        category: cat,
+        baseServings: servings,
+        tags: tags.length ? tags : ["Custom"],
+        ingredients: ingredients.length ? ingredients : [
+          { item: "main ingredient", amount: 1, unit: "lb", dept: "Meat & Deli", isPantry: false }
+        ],
+        instructions: instructions,
+        reheatTips: reheat || "Reheat gently in the microwave or enjoy fresh."
+      };
+
+      appData.recipes.unshift(newRec);
+      saveState();
+      closeAddModal();
+      renderLibrary('all');
+      renderPlanner();
+      showToast(`Added "${name}"`);
+    }
+
+    // --- IDEA GENERATOR ---
+    function generateRecipeIdea() {
+      const combos = [
+        {
+          title: "Seared Flank Steak & Roasted Asparagus",
+          cat: "lunch-hot",
+          tags: ["Beef", "Asparagus", "Garlic"],
+          ings: [
+            { item: "flank steak strips", amount: 1.5, unit: "lb", dept: "Meat & Deli", isPantry: false },
+            { item: "fresh asparagus spears", amount: 1, unit: "lb", dept: "Produce", isPantry: false },
+            { item: "olive oil", amount: 2, unit: "tbsp", dept: "Pantry & Spices", isPantry: true },
+            { item: "garlic powder", amount: 1, unit: "tsp", dept: "Pantry & Spices", isPantry: true }
+          ],
+          instructions: [
+            "Toss trimmed asparagus spears with 1 tbsp olive oil, garlic powder, salt, and pepper. Roast at 400°F for 12 minutes.",
+            "Season flank steak strips with salt and pepper. Sear in a hot skillet for 2-3 minutes per side.",
+            "Divide steak and asparagus into meal prep containers."
+          ],
+          reheatTips: "Microwave for 60 seconds with a damp paper towel so the flank steak remains tender."
+        },
+        {
+          title: "Roasted Turkey Breast with Garlic Cauliflower",
+          cat: "lunch-hot",
+          tags: ["Poultry", "Cauliflower", "Herb"],
+          ings: [
+            { item: "sliced roast turkey breast", amount: 1.5, unit: "lb", dept: "Meat & Deli", isPantry: false },
+            { item: "cauliflower florets", amount: 16, unit: "oz", dept: "Produce", isPantry: false },
+            { item: "butter", amount: 2, unit: "tbsp", dept: "Dairy & Eggs", isPantry: true },
+            { item: "dried thyme", amount: 1, unit: "tsp", dept: "Pantry & Spices", isPantry: true }
+          ],
+          instructions: [
+            "Toss cauliflower florets in melted butter, thyme, salt, and pepper. Roast at 400°F for 22 minutes until edges caramelize.",
+            "Warm and portion sliced roasted turkey breast alongside the roasted cauliflower in containers."
+          ],
+          reheatTips: "Microwave for 90 seconds covered."
+        }
+      ];
+
+      const chosen = combos[Math.floor(Math.random() * combos.length)];
+      const newRec = {
+        id: "idea_" + Date.now(),
+        title: chosen.title,
+        category: chosen.cat,
+        baseServings: 4,
+        tags: chosen.tags,
+        ingredients: chosen.ings,
+        instructions: chosen.instructions,
+        reheatTips: chosen.reheatTips
+      };
+
+      appData.recipes.unshift(newRec);
+      saveState();
+      renderLibrary('all');
+      renderPlanner();
+      showToast(`Generated: ${chosen.title}`);
+    }
+
+    // --- DATA BACKUP & RESTORE ---
+    function exportJSONBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `prepplan-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Data backup file exported!");
+    }
+
+    function importJSONBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed.recipes && parsed.slots) {
+            appData = parsed;
+            saveState();
+            renderPlanner();
+            renderVetoes();
+            showToast("Backup restored successfully!");
+          } else {
+            alert("Invalid backup file structure.");
+          }
+        } catch (err) {
+          alert("Error parsing backup JSON file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetToFactoryDefaults() {
+      if (confirm("Reset recipes and vetoes back to initial defaults?")) {
+        appData.recipes = [...DEFAULT_RECIPES];
+        appData.vetoes = [...DEFAULT_VETOES];
+        saveState();
+        renderPlanner();
+        renderVetoes();
+        showToast("Reset to factory defaults");
+      }
+    }
+
+    // --- STARTUP ---
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      renderPlanner();
+    });
+  </script>
+</body>
+</html>
